@@ -8,6 +8,9 @@ load_needed_packages <-
     }
   }
 
+load_needed_packages(c("magrittr", "dplyr", "tidyr", "purrr", 'jsonlite', 'purrr',
+                       "stringr"))
+
 get_forbes_tables <-
   function() {
     load_needed_packages('dplyr')
@@ -15,7 +18,7 @@ get_forbes_tables <-
       data_frame(
         name = c(
           'Top VCs',
-          'Athlete Endorsements',
+          'Athletes',
           "Richest Families",
           'Forbes 400',
           'Billionaires',
@@ -30,7 +33,7 @@ get_forbes_tables <-
           'Africa 50',
           "Korea 50",
           'Malaysia 50',
-          "Phillipines 50",
+          "Philippines 50",
           'Singapore 50',
           'Indonesia 50',
           'Thailand 50',
@@ -136,7 +139,7 @@ get_forbes_tables <-
           'person',
           'person',
           'person',
-          'organization',
+          'person',
           'organization',
           'organization',
           'organization',
@@ -161,7 +164,8 @@ get_forbes_tables <-
           'place',
           'place'
         )
-      )
+      ) %>%
+      unique
     return(forbes_tables)
   }
 
@@ -193,7 +197,8 @@ get_year_forbes_list_data <-
 
     url <-
       'http://www.forbes.com/ajax/list/data?year=' %>%
-      paste0(year, '&uri=', uri, '&type=', type)
+      paste0(year, '&uri=', uri, '&type=', type) %>%
+      unique()
 
     if (url %>% fromJSON() %>% as_data_frame %>% nrow == 0) {
       stop("Sorry Forbes ", list, " for ", year, " has no data")
@@ -204,6 +209,22 @@ get_year_forbes_list_data <-
       fromJSON(simplifyDataFrame = T, flatten = T) %>%
       as_data_frame()
 
+    if(!'rank' %in% names(json_data)) {
+      if('position' %in% names(json_data)) {
+        json_data %<>%
+          arrange(position)
+      }
+      json_data %<>%
+        dplyr::mutate(rank = 1:n()) %>%
+        dplyr::select(rank, everything())
+    }
+
+    if ('footNotes' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::select(-footNotes)
+
+    }
+
     column_class_df <-
       purrr::map(json_data, class) %>%
       unlist() %>%
@@ -211,6 +232,7 @@ get_year_forbes_list_data <-
       tbl_df %>%
       mutate(table = rownames(.),
              column = 1:n())
+
 
     if ('list' %in% column_class_df$class) {
       list_col <-
@@ -227,18 +249,22 @@ get_year_forbes_list_data <-
       for (id in list_df$id.table %>% unique) {
         if (list_df %>%
             dplyr::filter(id.table == id) %>%
-            .$name %>% length > 1) {
+            nrow > 1) {
           names <-
             list_df %>%
-            dplyr::filter(id.table == id) %>%
-            .$name %>%
+            dplyr::filter(id.table == id)
+
+          names <-
+            names[,2] %>%
+            extract2(1) %>%
             str_trim %>%
             paste0(collapse = ', ')
         } else {
           names <-
             list_df %>%
             dplyr::filter(id.table == id) %>%
-            .$name
+            .[,2] %>%
+            extract2(1)
         }
 
         all_list_data %<>% bind_rows(data_frame(id.table = id,
@@ -272,6 +298,16 @@ get_year_forbes_list_data <-
 
     }
 
+    if (type == "organization") {
+      json_data %<>%
+        mutate(
+          url.company.forbes = 'http://www.forbes.com/companies/' %>% paste0(uri),
+          url.image = 'http://i.forbesimg.com/media/lists/companies/' %>% paste0(imageUri, '_200x200.jpg')
+        ) %>%
+        dplyr::select(year, everything())
+
+    }
+
     if ('government' %in% names(json_data)) {
       json_data %<>%
         mutate(government = ifelse(government %>% is.na, F, government)) %>%
@@ -288,7 +324,12 @@ get_year_forbes_list_data <-
         mutate(timestamp = (timestamp / 1000) %>% as.POSIXct(origin = "1970-01-01"))
     }
 
-    if (list == "Billionaires") {
+    if ('date' %in% names(json_data)) {
+      json_data %<>%
+        mutate(date = (date / 1000) %>% as.POSIXct(origin = "1970-01-01"))
+    }
+
+    if (list %in%  c("Billionaires", "Forbes 400")) {
       json_data %<>%
         dplyr::rename(
           net_worth.millions = worth,
@@ -345,16 +386,130 @@ get_year_forbes_list_data <-
         )
 
     }
+    if (list %in% c('Growth Companies', "Best Employers", 'Powerful Brands',
+                    'Innovative Companies', 'Small Companies', 'Most Promising Companies',
+                    'Asia 200',
+                    'Largest Private Companies', 'Global 2000'
+                    )) {
+      json_data %<>%
+        dplyr::rename(company = name)
+    }
 
-    if (list %in% 'Athlete Endorsements') {
+    if (list %in% c('Growth Companies')) {
+      json_data %<>%
+        dplyr::rename(market_capitalization.millions = marketValue,
+                      innovation_premium = innovationPremium,
+                      pct.sales_growth = salesGrowth,
+                      pct.income_change = incomeChange) %>%
+        mutate(
+          pct.sales_growth = pct.sales_growth / 100,
+          innovation_premium = innovation_premium / 100,
+          pct.income_change = pct.income_change / 100
+        )
+    }
+
+    if (list %in% 'Athletes') {
       json_data %<>%
         dplyr::rename(sport = title) %>%
         mutate(sport = sport %>% str_replace_all('Athlete, ', ''))
     }
 
+    if (list %in% c('Top Colleges', 'Top Business Schools')) {
+      json_data %<>%
+        dplyr::rename(school = name)
+    }
+
+    if ('returnOnEquity' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(pct.return_on_equity = returnOnEquity) %>%
+        mutate(pct.return_on_equity = pct.return_on_equity / 100)
+    }
+
+    if ('netIncome' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(net_income.millions = netIncome)
+    }
+
+    if ('innovationPremium' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(innovation_premium = innovationPremium) %>%
+        mutate(innovation_premium = innovation_premium / 100)
+    }
+
+    if ('salesGrowth' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(pct.sales_growth = salesGrowth) %>%
+        mutate(pct.sales_growth = pct.sales_growth / 100)
+    }
+
+    if ('totalAnnualCost' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::select(-totalAnnualCost)
+    }
+
     if ('rank' %in% names(json_data)) {
       json_data %<>%
         arrange(rank)
+    }
+    if ('managementAssets' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(assets_under_management.millions = managementAssets)
+    }
+
+
+    if ('brandValue' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(brand_value.millions = brandValue)
+    }
+
+    if ('numberOfSiblingsEst' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(is.siblings.estimated = numberOfSiblingsEst)
+    }
+
+    if ('numberOfSiblings' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(siblings = numberOfSiblings)
+    }
+
+    if ('profits' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(profit.millions = profits)
+    }
+
+    if ('assets' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(assets.millions = assets)
+    }
+
+    if ('worth' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(net_worth.millions = worth)
+    }
+
+    if ('marketValue' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(market_capitalization.millions = marketValue)
+    }
+
+    if ('revenue' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(revenue.millions = revenue)
+    }
+
+    if ('advertising' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(advertising.millions = advertising)
+    }
+
+    if ('OneYearValueChange' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(pct.value_change = OneYearValueChange)
+    }
+
+    if ('earnings' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(earnings.millions = earnings)
     }
 
     if (names(json_data)[names(json_data) %in% c('pay', 'salary', 'endorsements')] %>% length > 0) {
@@ -364,12 +519,100 @@ get_year_forbes_list_data <-
 
     if (type == "place") {
       json_data %<>%
-        mutate(url.team.forbes = 'http://www.forbes.com/teams/' %>% paste0(uri))
+        mutate(url.place.forbes = 'http://www.forbes.com/places/' %>% paste0(uri))
+    }
+
+    if (list == "Richest Families") {
+      json_data %<>%
+        dplyr::rename(family = name,
+                      age.family = age) %>%
+        mutate(family = family %>% str_replace_all("family",'') %>% str_trim)
+    }
+
+    if (list == "Best Countries for Business") {
+      json_data %<>%
+        dplyr::rename(country = name,
+                      rank.innovation = innovation,
+                      rank.tax_burden = taxBurden,
+                      rank.monetary_freedom = monetaryFreedom,
+                      pct.gdp_growth = gdpGrowth,
+                      gdp_per_capita = gdpPerCapita,
+                      pct.trade_balance.gdp = tradeBalance,
+                      gdp.billions = gdp
+                      ) %>%
+        mutate(pct.trade_balance.gdp = pct.trade_balance.gdp / 100,
+               pct.gdp_growth = pct.gdp_growth / 100)
+    }
+
+    if (list == "Best Cities for Business") {
+      json_data %<>%
+        dplyr::rename(city = name,
+                      rank.education = education,
+                      pct.job_growth.projected = projectedAnnualJobGrowth,
+                      pct.high_tech_employement = hiTechEmployment,
+                      rank.cost_doing_business = costOfDoingBusiness,
+                      pct.college_graduates = collegeAttainment,
+                      rank.job_growth = jobGrowth,
+                      gross_metro_product.billions = grossMetroProduct
+        ) %>%
+        mutate(pct.job_growth.projected = pct.job_growth.projected / 100,
+               pct.high_tech_employement = pct.high_tech_employement / 100,
+               pct.college_graduates = pct.college_graduates / 100
+               )
+    }
+
+    if (list == "Best Small Cities for Business") {
+      json_data %<>%
+        dplyr::rename(city = name,
+                      rank.education = education,
+                      rank.cost_doing_business = costOfDoingBusiness,
+                      rank.job_growth = jobGrowth
+        )
+    }
+
+    if (list == "Best States for Business") {
+      json_data %<>%
+        dplyr::rename(state = name,
+                      rank.business_cost = businessCost,
+                      rank.regulatory_environment = regulatoryEnvironment,
+                      rank.economic_climate = economicClimate,
+                      rank.growth_pospects = growthProspects,
+                      rank.labor_supply = laborSupply,
+                      rank.life_quality = lifeQuality,
+                      pct.job_growth.projected = projectedAnnualJobGrowth,
+                      pct.college_graduates = collegeAttainment,
+                      gross_metro_product.billions = grossMetroProduct
+        ) %>%
+        mutate(pct.job_growth.projected = pct.job_growth.projected / 100,
+               pct.college_graduates = pct.college_graduates / 100
+        )
     }
 
     if (json_data$position %>% identical(json_data$rank)) {
       json_data %<>%
         dplyr::select(-position)
+    }
+
+    if (list %in% c('Top Business Schools')) {
+      json_data %<>%
+        dplyr::rename(salary.avg.post_mba = salary.millions,
+                      tution = cost,
+                      mba_gain.5_years = total5YearMbaGain,
+                      payback_period = yearsToPayback,
+                      salary.avg.pre_mba = preMbaSalary,
+                      gmat.median = medianGmat,
+                      students = annualEnrollment
+                      )
+    }
+
+    if ('uri' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::select(-uri)
+    }
+
+    if ('imageUri' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::select(-imageUri)
     }
 
     return(json_data)
@@ -621,7 +864,7 @@ get_year_list_forbes_bio_data <-
 
     if (return_message == T) {
       "You got forbes biography data for " %>%
-        paste0(all_data %>% nrow, ' people on the ', year, ' ', list_name) %>%
+        paste0(all_data %>% nrow, ' people on the ', year, ' ', list_name, ' list') %>%
         message()
     }
     return(all_data)
