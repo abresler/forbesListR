@@ -1,0 +1,11 @@
+Package: forbesListR
+Type: Package
+Title: Access Forbes list data
+Year: 2016
+Version: 0.1.0
+Authors@R: person("Alex", "Bresler", email = "abreselr@asbcllc.com", role = c("aut", "cre"))
+Description: This package wraps Forbes' list API to allow for users to explore and visualize these datasets.
+Depends: R (>= 3.2.0)
+License: MIT + file LICENSE
+LazyData: TRUE
+Imports: dplyr, jsonlite, stringr, magrittr, purrr, tidyr, jsonlite, rvest
