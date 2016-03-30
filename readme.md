@@ -306,4 +306,4 @@ choro1$ggplot_scale = scale_fill_gradientn(name = "# Cities",
 choro1$render()
 ```
 
-![](README-plot_choropleth-1.png)<!-- -->
+![](README-plot_choropleth-1.png)
