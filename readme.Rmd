@@ -1,5 +1,6 @@
 ---
   output: rmarkdown::github_document
+  always_allow_html: yes
 ---
   
   <!-- README.md is generated from README.Rmd. Please edit that file -->
@@ -91,12 +92,17 @@ library(forbesListR)
 nba_2016_values <- 
   get_year_forbes_list_data(list = "NBA Valuations", year = 2016)
 
-nba_2016_values %>% 
+top_10_2016 <- 
+  nba_2016_values %>% 
   dplyr::select(year, team, valuation.millions) %>% 
-  head(10) %>% 
-  knitr::kable()
-  
+  head(10)
 ```
+
+```{r results='asis', eval=TRUE, echo=FALSE}
+top_10_2016 %>% 
+  knitr::kable()
+```
+
 
 #### Get Top Venture Capitalists from 2012 to 2016
 ```{r message = F}
@@ -113,13 +119,172 @@ library(dplyr)
 athletes_2015 <- 
   get_year_list_forbes_bio_data(year = 2015, list_name = 'Athletes')
 
-athletes_2015 %>% 
+athletes_2015 <- 
+  athletes_2015 %>% 
   group_by(martial_status) %>% 
   summarise(earnings.millions = sum(salary_earnings.millions, na.rm = T)) %>% 
   arrange(desc(earnings.millions)) %>% 
-  ungroup %>% 
-  knitr::kable()
+  ungroup
 
 ```
 
 
+```{r results='asis', eval=TRUE, echo=FALSE}
+athletes_2015 %>% 
+  knitr::kable()
+```
+
+## Sample Data Visualizations
+
+## Waffle Chart of Aggregate Professional Sport Valuations by Year
+
+```{r data collection}
+nba_valuations <-
+  2012:2016 %>%
+  get_years_forbes_list_data(list_name = "NBA Valuations")
+
+nhl_valuations <-
+  2012:2016 %>%
+  get_years_forbes_list_data(list_name = "NHL Valuations")
+
+mlb_valuations <-
+  2012:2016 %>%
+  get_years_forbes_list_data(list_name = "MLB Valuations")
+
+nfl_valuations <-
+  2012:2016 %>%
+  get_years_forbes_list_data(list_name = "NFL Valuations")
+
+soccer_valuations <-
+  2012:2016 %>%
+  get_years_forbes_list_data(list_name = "Soccer Valuations")
+
+all_valuation_data <-
+  nba_valuations %>%
+  bind_rows(nhl_valuations) %>%
+  bind_rows(mlb_valuations) %>%
+  bind_rows(soccer_valuations) %>%
+  bind_rows(nfl_valuations) %>%
+  mutate(list = list %>% str_replace_all(' Valuations', '')) %>%
+  dplyr::filter(year %in% c(2012:2016))
+
+```
+
+```{r}
+library(waffle) # devtools::install_github("hrbrmstr/waffle")
+library(ggplot2) # devtools::install_github("hadley/ggplot2")
+
+total_by_year <- 
+  all_valuation_data %>% 
+  dplyr::filter(year %in% c(2012:2015)) %>% 
+  group_by(year) %>% 
+  summarise(aggregate_valuation.billions = sum(valuation.millions, na.rm = T) / 1000)
+
+totals <- 
+  total_by_year$aggregate_valuation.billions / 10
+
+names(totals) <- 
+  total_by_year$year
+
+sports_waffle_valuations <- 
+  totals %>% 
+  waffle(flip = F, size = 2, rows = 8, xlab = '1 square = ~$10B',  pad = 1,
+         colors = c("#FF5A5F","#FFB400", "#007A87", "#FFAA91", "#7B0051")) +
+  labs(title = "Aggregate Estimated Professional Sports Valuations",
+       subtitle = "MLB, NHL, NBA, NFL, & Soccer -- 2012-2015") +
+  theme(plot.subtitle = element_text(
+    size = 8,
+    hjust = 0
+  ),
+  plot.title = element_text(size = 10, face = "bold.italic")
+  )
+
+
+```
+
+```{r valuation_waffle, fig.width=6, fig.height=2.5}
+sports_waffle_valuations
+```
+
+## Streamgraph of Valuations by Sport, 2012 - 2016
+```{r}
+  summary_cols <-
+    c('valuation.millions', 'revenue.millions', 'operating_income.millions', 'debt.millions')
+  
+  summary_data <-
+    all_valuation_data %>%
+    dplyr::rename(sport = list) %>%
+    group_by(year, sport) %>%
+    summarise_each_(funs(sum(., na.rm = T)), summary_cols) %>%
+    mutate(revenue.multiple = valuation.millions / revenue.millions,
+           ebitda.multiple = valuation.millions / operating_income.millions) %>%
+    ungroup
+```
+
+
+```{r sports_valuations, message=FALSE, fig.width=7.5}
+library(streamgraph) # devtools::install_github('hrbrmstr/streamgraph')
+
+nba_streamgraph <- 
+  summary_data %>%
+  streamgraph("sport",
+              "valuation.millions",
+              "year",
+              offset = "silhouette",
+              interpolate = "step") %>%
+  sg_axis_x(1, "year", "%Y") %>%
+  sg_fill_brewer(palette = "Spectral") %>%
+  sg_legend(show = TRUE, label = "Sport: ")
+
+```
+
+### Choroplething Forbes 2015 Best Cities for Small Business by State 
+#### Example from [Aaron Miles](https://twitter.com/_aaronmiles)
+
+```{r}
+chor_packages <-
+  c('dplyr', 'choroplethr', 'RColorBrewer', 'ggplot2', 'magrittr')
+
+lapply(chor_packages, library, character.only = T)
+
+# Read in Forbes Data
+dat <-
+  get_year_forbes_list_data(list = "Best Cities for Business", year = 2015)
+
+#Summarize Number of Cities by State
+bus <-
+  dat %>%
+  group_by(state) %>%
+  summarize(cities = n_distinct(city)) %>%
+  mutate(state = state %>% tolower())
+
+
+#Read in Choroplethr Data
+data("df_state_demographics")
+
+# Merge with cities Data
+df_state_demographics <-
+  df_state_demographics %>%
+  left_join(bus, by = c("region" = "state"))
+
+#Fill NAs as 0 (States with no cities)
+df_state_demographics[is.na(df_state_demographics)] <-
+  0
+
+#Set value to be city
+df_state_demographics <-
+  df_state_demographics %>%
+  mutate(value = cities)
+
+#Create Plot
+choro1 <- StateChoropleth$new(df_state_demographics)
+choro1$title = "Forbes' Best Cities for Business by State -- 2015"
+choro1$set_num_colors(1)
+choro1$ggplot_polygon = geom_polygon(aes(fill = value), color = NA)
+choro1$ggplot_scale = scale_fill_gradientn(name = "# Cities",
+                                           colours = brewer.pal(8, "Purples"))
+```
+
+```{r plot_choropleth, message=FALSE, fig.width=7.5, fig.cap="Forbes Sports Valuations by League, 2012-2015"}
+choro1$render()
+```
