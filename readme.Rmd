@@ -241,7 +241,7 @@ nba_streamgraph <-
 ### Choroplething Forbes 2015 Best Cities for Small Business by State 
 #### Example from [Aaron Miles](https://twitter.com/_aaronmiles)
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
 chor_packages <-
   c('dplyr', 'choroplethr', 'RColorBrewer', 'ggplot2', 'magrittr')
 
@@ -285,6 +285,6 @@ choro1$ggplot_scale = scale_fill_gradientn(name = "# Cities",
                                            colours = brewer.pal(8, "Purples"))
 ```
 
-```{r plot_choropleth, message=FALSE, fig.width=7.5, fig.cap="Forbes Sports Valuations by League, 2012-2015"}
+```{r plot_choropleth, message=FALSE, fig.width=7.5}
 choro1$render()
 ```
