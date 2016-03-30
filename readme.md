@@ -258,36 +258,52 @@ nba_streamgraph <-
 
 #### Example from [Aaron Miles](https://twitter.com/_aaronmiles)
 
-    # [[1]]
-    #  [1] "streamgraph" "waffle"      "ggplot2"     "rvest"       "xml2"        "jsonlite"    "forbesListR" "stats"      
-    #  [9] "graphics"    "grDevices"   "utils"       "datasets"    "stringr"     "purrr"       "tidyr"       "formattable"
-    # [17] "readr"       "dplyr"       "magrittr"    "methods"     "base"       
-    # 
-    # [[2]]
-    #  [1] "choroplethr" "streamgraph" "waffle"      "ggplot2"     "rvest"       "xml2"        "jsonlite"    "forbesListR"
-    #  [9] "stats"       "graphics"    "grDevices"   "utils"       "datasets"    "stringr"     "purrr"       "tidyr"      
-    # [17] "formattable" "readr"       "dplyr"       "magrittr"    "methods"     "base"       
-    # 
-    # [[3]]
-    #  [1] "RColorBrewer" "choroplethr"  "streamgraph"  "waffle"       "ggplot2"      "rvest"        "xml2"        
-    #  [8] "jsonlite"     "forbesListR"  "stats"        "graphics"     "grDevices"    "utils"        "datasets"    
-    # [15] "stringr"      "purrr"        "tidyr"        "formattable"  "readr"        "dplyr"        "magrittr"    
-    # [22] "methods"      "base"        
-    # 
-    # [[4]]
-    #  [1] "RColorBrewer" "choroplethr"  "streamgraph"  "waffle"       "ggplot2"      "rvest"        "xml2"        
-    #  [8] "jsonlite"     "forbesListR"  "stats"        "graphics"     "grDevices"    "utils"        "datasets"    
-    # [15] "stringr"      "purrr"        "tidyr"        "formattable"  "readr"        "dplyr"        "magrittr"    
-    # [22] "methods"      "base"        
-    # 
-    # [[5]]
-    #  [1] "RColorBrewer" "choroplethr"  "streamgraph"  "waffle"       "ggplot2"      "rvest"        "xml2"        
-    #  [8] "jsonlite"     "forbesListR"  "stats"        "graphics"     "grDevices"    "utils"        "datasets"    
-    # [15] "stringr"      "purrr"        "tidyr"        "formattable"  "readr"        "dplyr"        "magrittr"    
-    # [22] "methods"      "base"
+``` r
+
+library(choroplethr) #install.packages('choroplethr')
+library(RColorBrewer)
+library(ggplot2)
+
+# Read in Forbes Data
+dat <-
+  get_year_forbes_list_data(list = "Best Cities for Business", year = 2015)
+
+#Summarize Number of Cities by State
+bus <-
+  dat %>%
+  group_by(state) %>%
+  summarize(cities = n_distinct(city)) %>%
+  mutate(state = state %>% tolower())
+
+
+#Read in Choroplethr Data
+data("df_state_demographics")
+
+# Merge with cities Data
+df_state_demographics <-
+  df_state_demographics %>%
+  left_join(bus, by = c("region" = "state"))
+
+#Fill NAs as 0 (States with no cities)
+df_state_demographics[is.na(df_state_demographics)] <-
+  0
+
+#Set value to be city
+df_state_demographics <-
+  df_state_demographics %>%
+  mutate(value = cities)
+
+#Create Plot
+choro1 <- StateChoropleth$new(df_state_demographics)
+choro1$title = "Forbes' Best Cities for Business by State -- 2015"
+choro1$set_num_colors(1)
+choro1$ggplot_polygon = geom_polygon(aes(fill = value), color = NA)
+choro1$ggplot_scale = scale_fill_gradientn(name = "# Cities",
+                                           colours = brewer.pal(8, "Purples"))
+```
 
 ``` r
 choro1$render()
 ```
 
-<img src="README-plot_choropleth-1.png" alt="Forbes Sports Valuations by League, 2012-2015"  />
+![](README-plot_choropleth-1.png)<!-- -->

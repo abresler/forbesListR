@@ -241,11 +241,11 @@ nba_streamgraph <-
 ### Choroplething Forbes 2015 Best Cities for Small Business by State 
 #### Example from [Aaron Miles](https://twitter.com/_aaronmiles)
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
-chor_packages <-
-  c('dplyr', 'choroplethr', 'RColorBrewer', 'ggplot2', 'magrittr')
+```{r choropleth}
 
-lapply(chor_packages, library, character.only = T)
+library(choroplethr) #install.packages('choroplethr')
+library(RColorBrewer)
+library(ggplot2)
 
 # Read in Forbes Data
 dat <-
