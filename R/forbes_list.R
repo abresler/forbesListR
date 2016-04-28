@@ -330,6 +330,8 @@ get_year_forbes_list_data <-
     }
 
     if (list %in%  c("Billionaires", "Forbes 400")) {
+
+
       json_data %<>%
         dplyr::rename(
           net_worth.millions = worth,
@@ -337,9 +339,13 @@ get_year_forbes_list_data <-
           real_time.rank = realTimeRank,
           real_time.position = realTimePosition,
           net_worth.realtime.millions = realTimeWorth,
-          assets_under_management.millions = managementAssets,
           title.company = title
         )
+    }
+
+    if ('managementAssets' %in% names(json_data)) {
+      json_data %<>%
+        dplyr::rename(assets_under_management.millions = managementAssets)
     }
 
     if (list %in% c(
@@ -451,11 +457,6 @@ get_year_forbes_list_data <-
       json_data %<>%
         arrange(rank)
     }
-    if ('managementAssets' %in% names(json_data)) {
-      json_data %<>%
-        dplyr::rename(assets_under_management.millions = managementAssets)
-    }
-
 
     if ('brandValue' %in% names(json_data)) {
       json_data %<>%

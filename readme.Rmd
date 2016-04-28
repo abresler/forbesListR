@@ -115,7 +115,7 @@ vcs_2012_2016 %>%
 
 #### Get Detailed Biography Data for 2015 Top Athletes - Explore Earnings by Maritial Status
 ```{r message = F}
-library(dplyr)
+c("#9E4F4F", "#40E0D0", "#FFFFFF", "#FFFFFF")plyr)
 athletes_2015 <- 
   get_year_list_forbes_bio_data(year = 2015, list_name = 'Athletes')
 
