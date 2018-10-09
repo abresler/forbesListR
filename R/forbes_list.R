@@ -172,8 +172,7 @@ get_forbes_tables <-
 
 get_year_forbes_list_data <-
   function(list = "NBA Valuations", year = 2016) {
-    c('jsonlite', 'stringr', 'dplyr', 'magrittr') %>%
-      load_needed_packages()
+    load_needed_packages(c('jsonlite', 'stringr', 'dplyr', 'magrittr'))  
 
     forbes_tables <-
       get_forbes_tables()
@@ -625,8 +624,7 @@ get_year_forbes_list_data_safe <-
 parse_forbes_bio_url <-
   function(url = "http://www.forbes.com/profile/floyd-mayweather/",
            return_message = T) {
-    c("jsonlite", 'rvest', 'dplyr', 'tidyr', 'stringr') %>%
-      load_needed_packages()
+    load_needed_packages(c('jsonlite', 'rvest', 'dplyr', 'tidyr', 'stringr'))
 
     names_df <-
       data_frame(
@@ -819,8 +817,8 @@ parse_forbes_bio_url <-
 get_years_forbes_list_data <-
   function(years = 2012:2016,
            list_name = "NBA Valuations") {
-    c('jsonlite', 'stringr', 'dplyr', 'magrittr', 'purrr') %>%
-      load_needed_packages()
+    load_needed_packages(c('jsonlite', 'stringr', 'dplyr', 'magrittr', 'purrr'))
+
     all_data <-
       years %>%
       purrr::map({
@@ -840,8 +838,7 @@ get_year_list_forbes_bio_data <-
   function(year = 2016,
            list_name = "Top VCs",
            return_message = T) {
-    c('jsonlite', 'stringr', 'dplyr', 'magrittr', 'purrr') %>%
-      load_needed_packages()
+    load_needed_packages(c('jsonlite', 'stringr', 'dplyr', 'magrittr', 'purrr'))
 
     list_data <-
       get_year_forbes_list_data_safe(year = year, list = list_name)
